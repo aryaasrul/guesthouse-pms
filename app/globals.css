@@ -89,6 +89,19 @@ a { text-decoration: none; color: inherit; }
 
 .table-row-hover:hover { background: var(--surface) !important; }
 
+.location-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px 18px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  text-decoration: none;
+  transition: border-color 150ms ease;
+}
+.location-card:hover { border-color: var(--accent); }
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }

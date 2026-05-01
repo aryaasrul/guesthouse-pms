@@ -353,14 +353,7 @@ export default async function LandingPage() {
                     href="https://maps.app.goo.gl/CcFZf81xtJEPuuiN7"
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{
-                      background: 'var(--surface)', border: '1px solid var(--border)',
-                      borderRadius: 'var(--radius-lg)', padding: '16px 18px',
-                      display: 'flex', alignItems: 'flex-start', gap: 12,
-                      textDecoration: 'none', transition: 'border-color 150ms ease',
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--accent)')}
-                    onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}
+                    className="location-card"
                   >
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
                       stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
