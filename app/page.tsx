@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase/server'
 import AvailabilityWidget, { type RentalPackage } from '@/components/public/AvailabilityWidget'
 import AnimatedHeader from '@/components/public/AnimatedHeader'
@@ -99,9 +100,8 @@ function PhotoGallery({ photos }: { photos: string[] }) {
 
   if (photos.length === 1) {
     return (
-      <div className="photo-img-wrapper" style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden', height: 400 }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={photos[0]} alt="Foto properti" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      <div className="photo-img-wrapper" style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden', height: 400, position: 'relative' }}>
+        <Image src={photos[0]} alt="Foto properti" fill style={{ objectFit: 'cover' }} priority sizes="100vw" />
       </div>
     )
   }
@@ -113,16 +113,14 @@ function PhotoGallery({ photos }: { photos: string[] }) {
       gridTemplateRows: '200px 200px',
       gap: 8, borderRadius: 'var(--radius-lg)', overflow: 'hidden',
     }}>
-      {/* Big photo */}
-      <div className="photo-img-wrapper" style={{ gridRow: '1 / 3', overflow: 'hidden' }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={photos[0]} alt="Foto utama" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      {/* Big photo — LCP element, load with priority */}
+      <div className="photo-img-wrapper" style={{ gridRow: '1 / 3', overflow: 'hidden', position: 'relative' }}>
+        <Image src={photos[0]} alt="Foto utama" fill style={{ objectFit: 'cover' }} priority sizes="(max-width: 768px) 100vw, 50vw" />
       </div>
-      {/* Right side: up to 4 more photos */}
+      {/* Right side: up to 4 more photos — lazy loaded */}
       {photos.slice(1, 5).map((url, i) => (
-        <div key={url} className="photo-img-wrapper" style={{ overflow: 'hidden' }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={url} alt={`Foto ${i + 2}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        <div key={url} className="photo-img-wrapper" style={{ overflow: 'hidden', position: 'relative' }}>
+          <Image src={url} alt={`Foto ${i + 2}`} fill style={{ objectFit: 'cover' }} sizes="(max-width: 768px) 50vw, 25vw" />
         </div>
       ))}
       {/* Fill empty slots with surface color */}
