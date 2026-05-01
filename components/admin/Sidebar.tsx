@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 
 const NAV_ITEMS = [
@@ -99,8 +98,10 @@ export default function AdminSidebar({ open, onClose }: SidebarProps) {
       {/* Property branding */}
       <div style={{ padding: '20px 20px 16px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         <div>
-          <Image src="/logo.png" alt="Guesthouse of Terang" width={120} height={40} style={{ objectFit: 'contain', objectPosition: 'left' }} />
-          <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 4 }}>Ponorogo, Jawa Timur</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+            Guesthouse <span style={{ fontStyle: 'italic', fontWeight: 400 }}>of</span> Terang
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>Ponorogo, Jawa Timur</div>
         </div>
         {onClose && (
           <button

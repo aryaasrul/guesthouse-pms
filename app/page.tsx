@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import Image from 'next/image'
 import { createClient } from '@/lib/supabase/server'
 import AvailabilityWidget, { type RentalPackage } from '@/components/public/AvailabilityWidget'
 import AnimatedHeader from '@/components/public/AnimatedHeader'
@@ -156,7 +155,9 @@ export default async function LandingPage() {
     <div style={{ minHeight: '100vh', background: 'var(--bg)', fontFamily: 'var(--font-sans)' }}>
       {/* Sticky Header — glassmorphism on scroll */}
       <AnimatedHeader>
-        <Image src="/logo.png" alt="Guesthouse of Terang" width={120} height={36} style={{ objectFit: 'contain' }} />
+        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+          Guesthouse <span style={{ fontStyle: 'italic', fontWeight: 400 }}>of</span> Terang
+        </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {property?.address && (
             <span style={{ fontSize: 12, color: 'var(--text-3)', display: 'none' }} className="hide-mobile">
