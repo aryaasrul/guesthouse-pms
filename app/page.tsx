@@ -1,9 +1,81 @@
 import Link from 'next/link'
 import Image from 'next/image'
+import { cache } from 'react'
+import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import AvailabilityWidget, { type RentalPackage } from '@/components/public/AvailabilityWidget'
 import AnimatedHeader from '@/components/public/AnimatedHeader'
 import ScrollReveal from '@/components/public/ScrollReveal'
+
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://guesthouse-pms.vercel.app'
+
+// React cache deduplicates the DB call — generateMetadata & page share the same fetch
+const getProperty = cache(async () => {
+  const supabase = createClient()
+  const { data } = await supabase
+    .from('properties')
+    .select('*')
+    .eq('slug', 'guesthouse-terang')
+    .single()
+  return data
+})
+
+export async function generateMetadata(): Promise<Metadata> {
+  const property = await getProperty()
+
+  const name        = property?.name ?? 'Guesthouse of Terang'
+  const address     = property?.address ?? 'Ponorogo, Jawa Timur'
+  const priceFrom   = property?.price_weekday
+    ? `Mulai Rp ${property.price_weekday.toLocaleString('id-ID')}/malam`
+    : null
+  const title       = priceFrom
+    ? `${name} — Penginapan Murah Ponorogo | ${priceFrom}`
+    : `${name} — Penginapan & Sewa Kamar Murah di Ponorogo`
+  const description = [
+    `${name} adalah penginapan keluarga di Ponorogo, Jawa Timur.`,
+    priceFrom ? `${priceFrom}.` : null,
+    'Fasilitas lengkap: WiFi, AC, dapur, parkir luas.',
+    'Sewa kamar per malam atau seluruh rumah untuk keluarga & rombongan.',
+    'Pesan langsung secara online.',
+  ].filter(Boolean).join(' ')
+
+  const ogImage = property?.photos?.[0] ?? '/logo.png'
+
+  return {
+    title,
+    description,
+    keywords: [
+      'penginapan ponorogo',
+      'penginapan murah ponorogo',
+      'guesthouse ponorogo',
+      'sewa kamar ponorogo',
+      'homestay ponorogo',
+      'villa ponorogo',
+      'penginapan keluarga ponorogo',
+      'penginapan rombongan ponorogo',
+      'hotel murah ponorogo',
+      name.toLowerCase(),
+    ],
+    alternates: {
+      canonical: SITE_URL,
+    },
+    openGraph: {
+      type: 'website',
+      url: SITE_URL,
+      siteName: name,
+      locale: 'id_ID',
+      title,
+      description,
+      images: [{ url: ogImage, width: 1200, height: 630, alt: `Foto ${name} — ${address}` }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [ogImage],
+    },
+  }
+}
 
 function formatRupiah(n: number) {
   return 'Rp ' + n.toLocaleString('id-ID')
@@ -132,11 +204,9 @@ function PhotoGallery({ photos }: { photos: string[] }) {
 }
 
 export default async function LandingPage() {
+  const property = await getProperty()
+
   const supabase = createClient()
-
-  const { data: property } = await supabase
-    .from('properties').select('*').eq('slug', 'guesthouse-terang').single()
-
   const { data: rooms } = await supabase
     .from('rooms')
     .select('id, room_number, room_type, capacity, price_weekday, price_weekend')
@@ -145,11 +215,47 @@ export default async function LandingPage() {
     .order('room_number')
 
   const packages: RentalPackage[] = rooms ?? []
-
   const amenities: string[] = property?.amenities ?? []
   const photos: string[] = property?.photos ?? []
 
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'GuestHouse',
+    name: property?.name ?? 'Guesthouse of Terang',
+    description: property?.description ?? 'Penginapan keluarga di Ponorogo, Jawa Timur.',
+    url: SITE_URL,
+    telephone: '+6285162542682',
+    address: {
+      '@type': 'PostalAddress',
+      streetAddress: property?.address ?? '',
+      addressLocality: 'Ponorogo',
+      addressRegion: 'Jawa Timur',
+      addressCountry: 'ID',
+    },
+    image: photos.slice(0, 5),
+    ...(property?.price_weekday && {
+      priceRange: `Rp ${property.price_weekday.toLocaleString('id-ID')} – Rp ${(property.price_weekend ?? property.price_weekday).toLocaleString('id-ID')}`,
+    }),
+    checkinTime: property?.check_in_time ?? '14:00',
+    checkoutTime: property?.check_out_time ?? '12:00',
+    numberOfRooms: property?.bedroom_count ?? undefined,
+    amenityFeature: amenities.map((a) => ({
+      '@type': 'LocationFeatureSpecification',
+      name: AMENITY_LABELS[a] ?? a,
+      value: true,
+    })),
+    sameAs: [
+      'https://www.agoda.com',
+      'https://www.airbnb.com',
+    ],
+  }
+
   return (
+    <>
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+    />
     <div style={{ minHeight: '100vh', background: 'var(--bg)', fontFamily: 'var(--font-sans)' }}>
       {/* Sticky Header — glassmorphism on scroll */}
       <AnimatedHeader>
@@ -401,5 +507,6 @@ export default async function LandingPage() {
         &copy; {new Date().getFullYear()} {property?.name ?? 'Guesthouse of Terang'} · Ponorogo, Jawa Timur
       </footer>
     </div>
+    </>
   )
 }

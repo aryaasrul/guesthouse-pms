@@ -16,14 +16,16 @@ const mono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Guesthouse of Terang',
-  description: 'Sistem Manajemen Properti — Guesthouse of Terang, Ponorogo',
-  icons: {
-    icon: '/logo.png',
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL ?? 'https://guesthouse-pms.vercel.app'
+  ),
+  title: {
+    default: 'Guesthouse of Terang — Penginapan & Sewa Kamar Murah Ponorogo',
+    template: '%s | Guesthouse of Terang',
   },
-  openGraph: {
-    images: ['/logo.png'],
-  },
+  description:
+    'Penginapan murah di Ponorogo, Jawa Timur. WiFi, AC, dapur, parkir luas. Sewa kamar atau seluruh rumah untuk keluarga & rombongan. Pesan langsung online.',
+  icons: { icon: '/logo.png' },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
