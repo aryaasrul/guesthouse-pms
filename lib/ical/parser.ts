@@ -9,13 +9,27 @@ export interface IcalEvent {
 }
 
 export async function fetchAndParseIcal(url: string): Promise<IcalEvent[]> {
-  const response = await fetch(url, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (compatible; CalendarBot/1.0)',
-      Accept: 'text/calendar, application/calendar+xml, text/plain, */*',
-    },
-    cache: 'no-store',
-  })
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 15_000)
+
+  let response: Response
+  try {
+    response = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; CalendarBot/1.0)',
+        Accept: 'text/calendar, application/calendar+xml, text/plain, */*',
+      },
+      cache: 'no-store',
+    })
+  } catch (err) {
+    clearTimeout(timer)
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new Error(`Timeout 15s saat mengambil iCal dari ${new URL(url).hostname}`)
+    }
+    throw err
+  }
+  clearTimeout(timer)
 
   if (!response.ok) {
     throw new Error(

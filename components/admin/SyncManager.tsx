@@ -128,6 +128,7 @@ function ChannelCard({ source, propertyId, onRefresh }: { source: Source; proper
   const [syncing, setSyncing] = useState(false)
   const [editing, setEditing] = useState(false)
   const [url, setUrl] = useState(source.ical_url)
+  const [urlError, setUrlError] = useState<string | null>(null)
   const [lastOutcome, setLastOutcome] = useState<SyncOutcome | null>(null)
 
   const LOGO_COLORS: Record<string, string> = { airbnb: '#FF5A5F', agoda: '#003580' }
@@ -165,22 +166,32 @@ function ChannelCard({ source, propertyId, onRefresh }: { source: Source; proper
 
   async function handleToggle(newValue: boolean) {
     setActive(newValue)
-    await fetch('/api/ical-sources', {
+    const res = await fetch('/api/ical-sources', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: source.id, is_active: newValue }),
     })
-    onRefresh()
+    if (!res.ok) {
+      setActive(!newValue)
+    } else {
+      onRefresh()
+    }
   }
 
   async function saveUrl() {
-    await fetch('/api/ical-sources', {
+    setUrlError(null)
+    const res = await fetch('/api/ical-sources', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: source.id, ical_url: url }),
     })
-    setEditing(false)
-    onRefresh()
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}))
+      setUrlError(d.error ?? 'Gagal menyimpan URL')
+    } else {
+      setEditing(false)
+      onRefresh()
+    }
   }
 
   return (
@@ -227,24 +238,30 @@ function ChannelCard({ source, propertyId, onRefresh }: { source: Source; proper
               textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6,
             }}>iCal URL</div>
             {editing ? (
-              <div style={{ display: 'flex', gap: 8 }}>
-                <input
-                  value={url}
-                  onChange={e => setUrl(e.target.value)}
-                  style={{
-                    flex: 1, fontFamily: 'var(--font-mono)', fontSize: 11,
-                    border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-                    padding: '6px 8px', background: '#fff', color: 'var(--text-1)',
-                    outline: 'none',
-                  }}
-                />
-                <button onClick={saveUrl} style={{
-                  padding: '5px 12px', borderRadius: 'var(--radius)',
-                  border: 'none', background: 'var(--accent)', color: '#fff',
-                  fontSize: 12, fontWeight: 500, cursor: 'pointer',
-                  fontFamily: 'var(--font-sans)',
-                }}>Simpan</button>
-                <button onClick={() => setEditing(false)} style={ghostBtnStyle}>Batal</button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    value={url}
+                    onChange={e => { setUrl(e.target.value); setUrlError(null) }}
+                    style={{
+                      flex: 1, fontFamily: 'var(--font-mono)', fontSize: 11,
+                      border: `1px solid ${urlError ? 'var(--status-occupied-fg)' : 'var(--border)'}`,
+                      borderRadius: 'var(--radius-sm)',
+                      padding: '6px 8px', background: '#fff', color: 'var(--text-1)',
+                      outline: 'none',
+                    }}
+                  />
+                  <button onClick={saveUrl} style={{
+                    padding: '5px 12px', borderRadius: 'var(--radius)',
+                    border: 'none', background: 'var(--accent)', color: '#fff',
+                    fontSize: 12, fontWeight: 500, cursor: 'pointer',
+                    fontFamily: 'var(--font-sans)',
+                  }}>Simpan</button>
+                  <button onClick={() => { setEditing(false); setUrlError(null) }} style={ghostBtnStyle}>Batal</button>
+                </div>
+                {urlError && (
+                  <span style={{ fontSize: 11, color: 'var(--status-occupied-fg)' }}>{urlError}</span>
+                )}
               </div>
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -483,7 +500,7 @@ export default function SyncManager({ propertyId, sources, logs, rooms }: Props)
                 </tr>
               ) : (
                 logs.map((log, i) => {
-                  const platform = (log.ical_sources as any)?.platform ?? 'other'
+                  const platform = log.ical_sources?.platform ?? 'other'
                   const isEven = i % 2 === 0
                   return (
                     <tr key={log.id} style={{ background: isEven ? 'transparent' : 'rgba(242,240,236,0.5)' }}>

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { fetchAndParseIcal, toDateString } from '@/lib/ical/parser'
+import type { IcalSource } from '@/types/database'
 
 // Vercel Cron: dipanggil setiap 30 menit via GET
 export async function GET(request: Request) {
@@ -16,7 +17,7 @@ export async function GET(request: Request) {
 
   const { data: sources, error: sourcesError } = await supabase
     .from('ical_sources')
-    .select('*, rooms(property_id)')
+    .select('*')
     .eq('is_active', true)
 
   if (sourcesError) {
@@ -29,7 +30,9 @@ export async function GET(request: Request) {
 
   const summary = results.map((r, i) => ({
     source_id: sources![i].id,
-    ...(r.status === 'fulfilled' ? r.value : { events_found: 0, events_inserted: 0, events_updated: 0, error: String((r as PromiseRejectedResult).reason) }),
+    ...(r.status === 'fulfilled'
+      ? r.value
+      : { events_found: 0, events_inserted: 0, events_updated: 0, error: String((r as PromiseRejectedResult).reason) }),
   }))
 
   return NextResponse.json({ synced: summary.length, summary })
@@ -47,10 +50,9 @@ export async function POST(request: Request) {
 
     const supabase = createServiceClient()
 
-    // Build query — avoid let reassignment to keep types stable
     const sourcesQuery = source_id
-      ? supabase.from('ical_sources').select('*, rooms(property_id)').eq('is_active', true).eq('id', source_id)
-      : supabase.from('ical_sources').select('*, rooms(property_id)').eq('is_active', true)
+      ? supabase.from('ical_sources').select('*').eq('is_active', true).eq('id', source_id)
+      : supabase.from('ical_sources').select('*').eq('is_active', true)
 
     const { data: sources, error: sourcesError } = await sourcesQuery
     if (sourcesError) return NextResponse.json({ error: sourcesError.message }, { status: 500 })
@@ -63,10 +65,9 @@ export async function POST(request: Request) {
       const r = results[i]
       return {
         source_id: source.id,
-        ...(r.status === 'fulfilled' ? r.value : {
-          events_found: 0, events_inserted: 0, events_updated: 0,
-          error: String((r as PromiseRejectedResult).reason),
-        }),
+        ...(r.status === 'fulfilled'
+          ? r.value
+          : { events_found: 0, events_inserted: 0, events_updated: 0, error: String((r as PromiseRejectedResult).reason) }),
       }
     })
 
@@ -87,7 +88,7 @@ interface SyncResult {
 
 async function syncSource(
   supabase: ReturnType<typeof createServiceClient>,
-  source: any,
+  source: IcalSource,
 ): Promise<SyncResult> {
   let eventsFound = 0
   let eventsInserted = 0
@@ -98,35 +99,63 @@ async function syncSource(
     const events = await fetchAndParseIcal(source.ical_url)
     eventsFound = events.length
 
-    for (const event of events) {
-      const checkIn  = toDateString(event.start)
-      const checkOut = toDateString(event.end)
-
-      const { data: existing } = await supabase
+    if (events.length > 0) {
+      // Batch lookup: 1 query instead of N queries
+      const uids = events.map((e) => e.uid)
+      const { data: existingBookings } = await supabase
         .from('bookings')
-        .select('id, check_in, check_out')
+        .select('id, check_in, check_out, external_uid')
         .eq('property_id', source.property_id)
-        .eq('external_uid', event.uid)
-        .maybeSingle()
+        .eq('room_id', source.room_id)
+        .in('external_uid', uids)
 
-      if (!existing) {
-        await supabase.from('bookings').insert({
-          property_id: source.property_id,
-          room_id: source.room_id,
-          check_in: checkIn,
-          check_out: checkOut,
-          source: source.platform === 'other' ? 'direct' : source.platform,
-          external_uid: event.uid,
-          status: 'confirmed',
-          notes: event.summary,
-        })
-        eventsInserted++
-      } else if (existing.check_in !== checkIn || existing.check_out !== checkOut) {
-        await supabase
-          .from('bookings')
-          .update({ check_in: checkIn, check_out: checkOut })
-          .eq('id', existing.id)
-        eventsUpdated++
+      const existingMap = new Map(
+        (existingBookings ?? []).map((b) => [b.external_uid!, b])
+      )
+
+      type InsertRow = {
+        property_id: string; room_id: string; check_in: string; check_out: string
+        source: 'direct' | 'airbnb' | 'agoda'; external_uid: string; status: 'confirmed'; notes: string | null
+      }
+      const toInsert: InsertRow[] = []
+      const toUpdate: { id: string; check_in: string; check_out: string }[] = []
+
+      for (const event of events) {
+        const checkIn  = toDateString(event.start)
+        const checkOut = toDateString(event.end)
+        const existing = existingMap.get(event.uid)
+
+        if (!existing) {
+          toInsert.push({
+            property_id: source.property_id,
+            room_id: source.room_id,
+            check_in: checkIn,
+            check_out: checkOut,
+            source: (source.platform === 'other' ? 'direct' : source.platform) as 'direct' | 'airbnb' | 'agoda',
+            external_uid: event.uid,
+            status: 'confirmed',
+            notes: event.summary || null,
+          })
+        } else if (existing.check_in !== checkIn || existing.check_out !== checkOut) {
+          toUpdate.push({ id: existing.id, check_in: checkIn, check_out: checkOut })
+        }
+      }
+
+      if (toInsert.length > 0) {
+        await supabase.from('bookings').insert(toInsert)
+        eventsInserted = toInsert.length
+      }
+
+      if (toUpdate.length > 0) {
+        await Promise.all(
+          toUpdate.map((u) =>
+            supabase
+              .from('bookings')
+              .update({ check_in: u.check_in, check_out: u.check_out })
+              .eq('id', u.id)
+          )
+        )
+        eventsUpdated = toUpdate.length
       }
     }
 
