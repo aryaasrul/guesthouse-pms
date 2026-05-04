@@ -26,6 +26,9 @@ export const metadata: Metadata = {
   description:
     'Penginapan murah di Ponorogo, Jawa Timur. WiFi, AC, dapur, parkir luas. Sewa kamar atau seluruh rumah untuk keluarga & rombongan. Pesan langsung online.',
   icons: { icon: '/logo.png' },
+  verification: {
+    google: 'xJ8koXlvUiSgQ6Y6_lkwdkngpQ_LmSPrwIIMLjL',
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
